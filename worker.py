@@ -2,6 +2,28 @@ import csv
 
 id_count = 0
 
+def sort_key_by_salary(worker):
+    return float(worker.salary)
+
+def sort_decorator(sort_key):
+    def decorator(func):
+        def wrapper(self, *args, **kwargs):
+            self.collection = sorted(self.collection, key=sort_key)
+            func(self, *args, **kwargs)
+        return wrapper
+    return decorator
+
+def search_key_by_name(worker, name):
+    return worker.name.lower() == name.lower()
+
+def search_decorator(search_key):
+    def decorator(func):
+        def wrapper(self, *args, **kwargs):
+            result = [worker for worker in self.collection if search_key(worker, *args, **kwargs)]
+            func(self, result, *args, **kwargs)
+        return wrapper
+    return decorator
+
 class Worker:
     def __init__(self, name="", surname="", department="", salary=""):
         global id_count
@@ -78,15 +100,27 @@ class WorkerDB:
     def display(self):
         for i in self.collection:
             i.display_worker()
+    
+    @sort_decorator(sort_key_by_salary)
+    def sort_by_salary(self):
+        print("Sorting by salary:")
+        self.display()
+
+    @search_decorator(search_key_by_name)
+    def search_by_name(self, result, name):
+        print(f"Search results for '{name}':")
+        for worker in result:
+            worker.display_worker()
+    
 
 def main():
-    filename = 'small.csv'
+    filename = r'C:\Users\User\OneDrive - lnu.edu.ua\Робочий стіл\зав_прога\Programming_Practice\small.csv'
     collection = WorkerDB()
     choice = input("Press 1 to read from file: ")
     collection.read_from_csv_file(filename)
     while choice != '0':
         print(" 1 - add worker", "\n", "2 - edit worker", "\n", "3 - delete worker", "\n", "4 - display list of workers",
-              "\n", "5 - write list to file", "\n", "6 - exit", "\n")
+              "\n", "5 - write list to file", "\n", "6 - exit", "\n", "7 - sort", "\n", "8 - search","\n")
         choice = input("Enter your choice: ")
         if choice == "1":
             collection.add()
@@ -102,6 +136,12 @@ def main():
             collection.write_to_file('result_file.csv')
         elif choice == "6":
             choice = '0'
+        elif choice == "7":
+            collection.sort_by_salary()
+        elif choice =="8":
+            name_to_search = input("enter the name to search for: ")
+            collection.search_by_name(name_to_search)
+        
 
 if __name__ == "__main__":
     main()
