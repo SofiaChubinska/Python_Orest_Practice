@@ -1,7 +1,5 @@
 import csv
 
-id_count = 0
-
 def sort_key_by_salary(worker):
     return float(worker.salary)
 
@@ -26,19 +24,18 @@ def search_decorator(search_key):
 
 class Worker:
     def __init__(self, name="", surname="", department="", salary=""):
-        global id_count
-        id_count += 1
-        self.__ID = id_count
+        self.__ID = None
         self.name = name
         self.surname = surname
         self.department = department
         self.salary = salary
-
+     
     def read_worker(self):
-        self.name = input("name: ")
-        self.surname = input("surname: ")
-        self.department = input("department: ")
-        self.salary = input("salary: ")
+            self.name = input("name: ")
+            self.surname = input("surname: ")
+            self.department = input("department: ")
+            self.salary = input("salary: ")
+        
 
     def display_worker(self):
         print("ID:", self.__ID, "\n", "Name:", self.name, "\n", "Surname:", self.surname, "\n", "Department:",
@@ -50,6 +47,7 @@ class Worker:
 class WorkerDB:
     def __init__(self):
         self.collection = []
+        self.id_generator = self.generate_ids()
 
     def read_from_csv_file(self, filename):
         with open(filename, newline='') as csv_file:
@@ -57,6 +55,7 @@ class WorkerDB:
             for row in reader:
                 name, surname, department, salary = row["name"], row["surname"], row["department"], row["salary"]
                 worker = Worker(name, surname, department, salary)
+                worker._Worker__ID = int(row["id"])  # Set the ID from the CSV file
                 self.collection.append(worker)
 
     def write_to_file(self, filename):
@@ -68,9 +67,17 @@ class WorkerDB:
                 writer.writerow({"id": i.get_id(), "name": i.name, "surname": i.surname,
                                  "department": i.department, "salary": i.salary})
 
+    def generate_ids(self):
+        max_id = max([i.get_id() for i in self.collection], default=0)
+        new_id = max_id + 1
+        while True:
+            yield new_id
+            new_id += 1
+
     def add(self):
         worker = Worker()
         worker.read_worker()
+        worker._Worker__ID = next(self.id_generator)
         self.collection.append(worker)
 
     def edit(self, id):
@@ -111,37 +118,44 @@ class WorkerDB:
         print(f"Search results for '{name}':")
         for worker in result:
             worker.display_worker()
-    
 
 def main():
-    filename = r'C:\Users\User\OneDrive - lnu.edu.ua\Робочий стіл\зав_прога\Programming_Practice\small.csv'
+    filename = r'C:\Users\User\OneDrive - lnu.edu.ua\Робочий стіл\зав_прога\small.csv'
     collection = WorkerDB()
-    choice = input("Press 1 to read from file: ")
+    choice = input("Press anything to read from file: ")
     collection.read_from_csv_file(filename)
-    while choice != '0':
-        print(" 1 - add worker", "\n", "2 - edit worker", "\n", "3 - delete worker", "\n", "4 - display list of workers",
+
+    print(" 1 - add worker", "\n", "2 - edit worker", "\n", "3 - delete worker", "\n", "4 - display list of workers",
               "\n", "5 - write list to file", "\n", "6 - exit", "\n", "7 - sort", "\n", "8 - search","\n")
-        choice = input("Enter your choice: ")
-        if choice == "1":
+    choice = input("Enter your choice: ")
+    if choice == "1":
+        try:
             collection.add()
-        elif choice == "2":
-            id_num = int(input("Enter ID of worker you want to be changed: "))
-            collection.edit(id_num)
-        elif choice == "3":
-            id_num = int(input("Enter ID of worker you want to be deleted: "))
+            collection.write_to_file("small.csv")
+        except ValueError as e:
+            print(e)
+            input("press enter to continue ")
+    elif choice == "2":
+        id_num = int(input("Enter ID of worker you want to be changed: "))
+        collection.edit(id_num)
+    elif choice == "3":
+        id_num = int(input("Enter ID of worker you want to be deleted: "))
+        try:
             collection.delete(id_num)
-        elif choice == "4":
-            collection.display()
-        elif choice == "5":
-            collection.write_to_file('result_file.csv')
-        elif choice == "6":
-            choice = '0'
-        elif choice == "7":
-            collection.sort_by_salary()
-        elif choice =="8":
-            name_to_search = input("enter the name to search for: ")
-            collection.search_by_name(name_to_search)
-        
+        except ValueError as e:
+            print(e)
+            input("press enter to continue ")
+    elif choice == "4":
+        collection.display()
+    elif choice == "5":
+        collection.write_to_file('result_file.csv')
+    elif choice == "6":
+        choice = '0'
+    elif choice == "7":
+        collection.sort_by_salary()
+    elif choice =="8":
+        name_to_search = input("enter the name to search for: ")
+        collection.search_by_name(name_to_search)
 
 if __name__ == "__main__":
     main()
