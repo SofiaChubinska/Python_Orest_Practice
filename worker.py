@@ -1,30 +1,27 @@
 import csv
 import pandas as pd
 import matplotlib.pyplot as plt
-import numpy as np
 
 id_count = 0
 
-def sort_key_by_salary(row):
-    return float(row['salary'])
+def sort_key_by_salary(worker):
+    return float(worker.salary)
 
 def sort_decorator(sort_key):
     def decorator(func):
         def wrapper(self, *args, **kwargs):
-            self.collection = func(self.collection)
-            self.collection = self.collection.sort_values(by='salary', key=sort_key)
+            self.collection = sorted(self.collection, key=sort_key)
+            func(self, *args, **kwargs)
         return wrapper
     return decorator
 
-
-
-def search_key_by_name(row, name):
-    return row['name'].lower() == name.lower()
+def search_key_by_name(worker, name):
+    return worker.name.lower() == name.lower()
 
 def search_decorator(search_key):
     def decorator(func):
         def wrapper(self, *args, **kwargs):
-            result = self.collection[self.collection.apply(lambda row: search_key(row, *args, **kwargs), axis=1)]
+            result = [worker for worker in self.collection if search_key(worker, *args, **kwargs)]
             func(self, result, *args, **kwargs)
         return wrapper
     return decorator
@@ -57,63 +54,77 @@ class WorkerDB:
         self.collection = []
 
     def read_from_csv_file(self, filename):
-        try:
-            self.collection = pd.read_csv(filename)
-            self.collection["id"] = np.arange(1, len(self.collection) + 1) 
+        with open(filename, newline='') as csv_file:
+            reader = csv.DictReader(csv_file, delimiter=",")
+            for row in reader:
+                print("Raw Data from CSV:", row)
+                name = row.get("name")
+                surname = row.get("surname")
+                department = row.get("department") 
+                salary = row.get("salary")
 
-            print("Collection after reading from CSV file:")
-            print(self.collection)
-        except pd.errors.EmptyDataError:
-            print("Error: CSV file is empty.")
-        except Exception as e:
-            print(f"Error: {e}")
+                if name is not None and surname is not None and department is not None and salary is not None:
+                    worker = Worker(name, surname, department, salary)
+                    self.collection.append(worker)
+                else:
+                    print("Error: Missing or invalid data in CSV file.")
+                    break
+
+        print("Collection after reading from CSV file:", self.collection)
 
     def write_to_file(self, filename):
         with open(filename, 'w', newline='') as csv_file:
             fieldnames = ["id", "name", "surname", "department", "salary"]
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames, delimiter=',')
             writer.writeheader()
-            for _, row in self.collection.iterrows():
-                writer.writerow({"id": row['id'], "name": row['name'], "surname": row['surname'],
-                             "department": row['department'], "salary": row['salary']})
+            for i in self.collection:
+                writer.writerow({"id": i.get_id(), "name": i.name, "surname": i.surname,
+                                 "department": i.department, "salary": i.salary})
 
-
-    def add(self):
-        worker_data = {
-            "name": input("name: "),
-            "surname": input("surname: "),
-            "department": input("department: "),
-            "salary": input("salary: ")
-        }
-        new_worker = pd.DataFrame([worker_data])
-        new_worker["id"] = np.max(self.collection["id"]) + 1 if not self.collection.empty else 1
-        self.collection = pd.concat([self.collection, new_worker], ignore_index=True)
+    def add(self, worker):
+        self.collection.append(worker)
 
     def edit(self, id):
-        self.collection.loc[self.collection['id'] == id, 'name'] = input("Enter new name: ")
-        self.collection.loc[self.collection['id'] == id, 'surname'] = input("Enter new surname: ")
-        self.collection.loc[self.collection['id'] == id, 'department'] = input("Enter new department: ")
-        self.collection.loc[self.collection['id'] == id, 'salary'] = input("Enter new salary: ")
+        for i in self.collection:
+            if i.get_id() == id:
+                print("1 - edit name", "\n", "2 - edit surname", "\n", "3 - edit department", "\n", "4 - edit salary",
+                      "\n")
+                choice = int(input("enter your choice: "))
+                if choice == 1:
+                    n_name = input("enter new name: ")
+                    i.name = n_name
+                elif choice == 2:
+                    n_surname = input("enter new surname: ")
+                    i.surname = n_surname
+                elif choice == 3:
+                    n_department = input("enter new department: ")
+                    i.department = n_department
+                elif choice == 4:
+                    n_salary =  input("enter new salary: ")
+                    i.salary = n_salary
 
     def delete(self, id):
-        self.collection = self.collection[self.collection['id'] != id]
+        for i in self.collection:
+            if i.get_id() == id:
+                self.collection.remove(i)
 
     def display(self):
-        print(self.collection)
+        for i in self.collection:
+            i.display_worker()
 
     @sort_decorator(sort_key_by_salary)
     def sort_by_salary(self):
         print("Sorting by salary:")
-        self.collection['salary'] = self.collection['salary'].astype(float)
-        print(self.collection)
+        self.display()
 
     @search_decorator(search_key_by_name)
     def search_by_name(self, result, name):
         print(f"Search results for '{name}':")
-        print(result)
+        for worker in result:
+            worker.display_worker()
 
     def show_department_pie_chart(self):
-        departments = self.collection["department"].tolist()
+        departments = [worker.department for worker in self.collection]
         print("Departments:", departments)
 
         department_counts = pd.Series(departments).value_counts()
@@ -124,14 +135,16 @@ class WorkerDB:
         plt.title('Distribution of Workers by Department')
         plt.show()
 
+
+
 def main():
-    filename = r'C:\Users\User\OneDrive - lnu.edu.ua\Робочий стіл\зав_прога\Programming_Practice\small.csv'
+    filename = r'C:\Users\User\OneDrive - lnu.edu.ua\Робочий стіл\PANDAS\small.csv'
     collection = WorkerDB()
     choice = input("Press 1 to read from file: ")
     collection.read_from_csv_file(filename)
     while choice != '0':
         print(" 1 - add worker", "\n", "2 - edit worker", "\n", "3 - delete worker", "\n", "4 - display list of workers",
-            "\n", "5 - write list to file", "\n", "6 - exit", "\n", "7 - sort", "\n", "8 - search","\n", "9 - show department pie chart","\n")
+              "\n", "5 - write list to file", "\n", "6 - exit", "\n", "7 - sort", "\n", "8 - search","\n", "9 - show department pie chart","\n")
         choice = input("Enter your choice: ")
         if choice == "1":
             collection.add()
